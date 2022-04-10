@@ -17,10 +17,20 @@ package main
 // runtime "github.com/banzaicloud/logrus-runtime-formatter"
 import (
 	"flag"
+	"fmt"
 	"github.com/EdPascoe/epptester/pkg/cmd/epptester"
 	_ "github.com/EdPascoe/epptester/pkg/log"
 	"github.com/sirupsen/logrus"
 )
+
+// The flag help message.
+func Usage() {
+	w := flag.CommandLine.Output() // may be os.Stderr - but not necessarily
+	fmt.Fprintln(w, `EPPTester 
+A really simp tool for testing connections to an EPP server.  Cert and Key can be in the same file.. Just speicify twice.
+`)
+	flag.PrintDefaults()
+}
 
 func main() {
 	// log.SetFormatter(&log.JSONFormatter{})
@@ -32,6 +42,7 @@ func main() {
 	port := flag.Int("port", 3121, "Server port ")
 	username := flag.String("username", "", "EPP Username")
 	password := flag.String("password", "", "EPP Password")
+	flag.Usage = Usage
 	flag.Parse()
 
 	epptester.RunTest(*certFile, *keyFile, *host, *port, *username, *password)
