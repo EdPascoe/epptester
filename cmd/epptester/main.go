@@ -27,14 +27,13 @@ import (
 func Usage() {
 	w := flag.CommandLine.Output() // may be os.Stderr - but not necessarily
 	fmt.Fprintln(w, `EPPTester 
-A really simp tool for testing connections to an EPP server.  Cert and Key can be in the same file.. Just speicify twice.
+A really simple tool for testing connections to an EPP server.  
+Cert and Key can be in the same file.. Just specify twice.
 `)
 	flag.PrintDefaults()
 }
 
 func main() {
-	// log.SetFormatter(&log.JSONFormatter{})
-	// loggingSetup()
 	logrus.Debugln("Start")
 	certFile := flag.String("cert", "cert.pem", "certificate PEM file")
 	keyFile := flag.String("key", "key.pem", "key PEM file")
@@ -46,8 +45,4 @@ func main() {
 	flag.Parse()
 
 	epptester.RunTest(*certFile, *keyFile, *host, *port, *username, *password)
-	//epptester.Checkcert(conn)
-	//epptester.Checkepp(conn)
-	//epptester.Login(conn, "dnservices", "e4a192c3")
-	// fmt.Println("Login: ", login)
 }

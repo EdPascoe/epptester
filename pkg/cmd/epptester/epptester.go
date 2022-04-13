@@ -1,11 +1,20 @@
 package epptester
 
 import (
+	"bytes"
+	"context"
+	"crypto/md5"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"github.com/EdPascoe/epptester/pkg/epp"
-	"github.com/sirupsen/logrus"
+	"github.com/fatih/color"
+	"io/ioutil"
 	"log"
+	"net"
+	"os"
+	"time"
 )
 
 /*
@@ -34,48 +43,136 @@ func Checkepp(conn *tls.Conn) {
 	//fmt.Println("Header message:", header)
 }
 
-func Checkcert(conn *tls.Conn) {
-	fmt.Println("=============== Certificate check =====================")
-	log.Println("client: connected to: ", conn.RemoteAddr())
+func servercertcheck(conn *tls.Conn) {
+	tlsversions := map[uint16]string{
+	tls.VersionSSL30: "SSL",
+	tls.VersionTLS10: "TLS 1.0",
+	tls.VersionTLS11: "TLS 1.1",
+	tls.VersionTLS12: "TLS 1.2",
+	tls.VersionTLS13: "TLS 1.3",
+}
+
+	fmt.Println("\n\n==========Server side certificate check =====================")
 	state := conn.ConnectionState()
 	for _, v := range state.PeerCertificates {
 		// fmt.Println(x509.MarshalPKIXPublicKey(v.PublicKey))
 		fmt.Println("Certificate: ", v.Subject) // , v.Verify())
+		fmt.Printf("   Expiry: %s", v.NotAfter)
+		if time.Now().After(v.NotAfter) {
+			color.Red(" *** WARNING *** Certificate has Expired")
+		} else {
+			fmt.Println("")
+		}
 	}
-	//log.Println("client: handshake: ", state.HandshakeComplete)
-	//log.Println("client: mutual: ", state.NegotiatedProtocolIsMutual)
-	return
-	//
-	//message := "data"
-	//n, err := io.WriteString(conn, message)
-	//if err != nil {
-	//	log.Fatalf("client: write: %s", err)
-	//}
-	//log.Printf("client: wrote %q (%d bytes)", message, n)
-
-	//reply := make([]byte, 256)
-	//n, err = conn.Read(reply)
-	//log.Printf("client: read %q (%d bytes)", string(reply[:n]), n)
-	//log.Print("client: exiting")
+	// fmt.Println("client: handshake: ", state.HandshakeComplete)
+	tlsv := conn.ConnectionState().Version
+	fmt.Println("TLS version: ", tlsversions[tlsv])
 }
 
-func RunTest(certfile string, keyfile string, host string, port int, username string, password string) {
-	session, err := epp.Connect(certfile, keyfile, host, port)
-	if err != nil {
-		log.Fatalf("Epp session failure: %s", err)
-
+func clientcertcheck(certfile string) {
+	fmt.Println("\n=============== Client side certificate check =====================")
+	rootPEM, _ := ioutil.ReadFile(certfile)
+	block, _ := pem.Decode([]byte(rootPEM))
+	if block == nil {
+		log.Fatalln("failed to parse certificate PEM")
 	}
-	logrus.Infoln("Connected")
-	defer session.Conn.Close()
-	err = epp.Login(session, username, password)
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		log.Fatalln("failed to parse certificate: ", err.Error())
+	}
+
+	// fmt.Println("\nCert: DNS:", cert.DNSNames)
+	// fmt.Println("Issuer:", cert.Issuer)
+	fmt.Println("Subject:", cert.Subject)
+	fmt.Printf("    Expiry: %s", cert.NotAfter)
+	if time.Now().After(cert.NotAfter) {
+		color.Red(" *** WARNING *** Certificate has Expired")
+	} else {
+		fmt.Println("")
+	}
+	fingerprint := md5.Sum(cert.Raw)
+	var buf bytes.Buffer
+	for i, f := range fingerprint {
+		if i > 0 {
+			fmt.Fprintf(&buf, ":")
+		}
+		fmt.Fprintf(&buf, "%02X", f)
+	}
+	fmt.Println("Fingerprint:", buf.String())
+
+}
+
+// Use the google myaddr hack to find this servers public ip
+func Findmyip() string {
+	// See https://unix.stackexchange.com/questions/22615/how-can-i-get-my-external-ip-address-in-a-shell-script
+	searchserver := "ns1.google.com:53"
+	r := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{
+				Timeout: time.Millisecond * time.Duration(10000),
+			}
+			return d.DialContext(ctx, "udp", searchserver)
+		},
+	}
+	textrecords, err := r.LookupTXT(context.Background(), "o-o.myaddr.l.google.com")
+	if err != nil {
+		fmt.Errorf("Failed to check dns: %s", err)
+		return ""
+	}
+	if len(textrecords) > 0 {
+		return textrecords[0]
+	} else {
+		return ""
+	}
+	// print(ip[0])
+
+}
+
+// Find the name of the server we are going to connect to
+func Findserverip(host string) string {
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not get IPs: %v\n", err)
+		return ""
+	}
+	if len(ips) > 0 {
+		return fmt.Sprintf("%s", ips[0])
+	} else {
+		return ""
+	}
+}
+
+// Basic checks on ip addresses
+func dnschecks(host string) {
+	ip := Findmyip()
+	fmt.Println("=============== IP check =====================")
+	fmt.Println("Your ip address is probably ", ip)
+	ip = Findserverip(host)
+	fmt.Println("Connecting to ", ip)
+}
+
+func logintest(session *epp.Session, username string, password string) {
+	fmt.Println("\n=============== login check =====================")
+	login, err := epp.Login(session, username, password)
 	if err != nil {
 		log.Fatalf("Login failed with %s", err)
 	}
-	logrus.Infoln("Logged in")
-	fmt.Println(session.Lastmessage)
+	fmt.Println("Logged in ", login.Result.Msg)
+}
 
-	//Checkcert(conn)
-	//Checkepp(conn)
-	//epp.Login(conn, "dnservices", "e4a192c3")
-	// fmt.Println("Login: ", login)
+func RunTest(certfile string, keyfile string, host string, port int, username string, password string) {
+	dnschecks(host)
+	clientcertcheck(certfile)
+	session, err := epp.Connect(certfile, keyfile, host, port)
+	if err != nil {
+		log.Fatalf("Epp session failure: %s", err)
+	}
+	// fmt.Println("TLS session connected", session.Conn.ConnectionState().Version)
+	defer session.Conn.Close()
+	servercertcheck(session.Conn)
+	fmt.Printf("Server: %s  -- %s\n", session.Greeting.Svid, session.Greeting.Svdate)
+	fmt.Println(" ")
+	logintest(session, username, password)
 }
