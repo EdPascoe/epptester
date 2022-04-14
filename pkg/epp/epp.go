@@ -9,7 +9,7 @@ import (
 
 const TIMEOUT = 5
 
-func Tlsconnect(certfile string, keyfile string, host string, port int) (*tls.Conn, error) {
+func tlsconnect(certfile string, keyfile string, host string, port int) (*tls.Conn, error) {
 	cert, err := tls.LoadX509KeyPair(certfile, keyfile)
 	if err != nil {
 		return nil, err
@@ -20,17 +20,37 @@ func Tlsconnect(certfile string, keyfile string, host string, port int) (*tls.Co
 	return conn, err
 }
 
+type Session struct {
+	Conn        *tls.Conn
+	Greeting    *Eppgreeting
+	Lastmessage string
+}
+
+func Connect(certfile string, keyfile string, host string, port int) (*Session, error) {
+	conn, err := tlsconnect(certfile, keyfile, host, port)
+	if err != nil {
+		return &Session{}, err
+	}
+	eppsession := &Session{Conn: conn}
+	header, err := eppsession.Read() // The first frame is the epp greeting message.
+	if err != nil {
+		return eppsession, fmt.Errorf("Failed to get header %s", err)
+	}
+	err = eppsession.buildgreeting(header)
+	return eppsession, err
+}
+
 // Read a message from an epp server.
-func Read(conn *tls.Conn) (string, error) {
+func (s *Session) Read() (string, error) {
 	data := make([]byte, 8192)
 	var buffer []byte
 	var msgsize uint32 = 0 // -1 i.e we don't have a size yet
 	var rbytes uint32 = 0  // Bytes received so far.
 	for {
-		conn.SetReadDeadline(time.Now().Add(TIMEOUT * time.Second))
-		n, err := conn.Read(data)
+		s.Conn.SetReadDeadline(time.Now().Add(TIMEOUT * time.Second))
+		n, err := s.Conn.Read(data)
 		if err != nil {
-			return "", fmt.Errorf("Failed to read from the EPP server", err)
+			return "", fmt.Errorf("Failed to read from the EPP server: %s", err)
 		}
 		if msgsize == 0 { // This is the first frame.
 			if n < 4 {
@@ -51,21 +71,26 @@ func Read(conn *tls.Conn) (string, error) {
 }
 
 // Send message to server
-func Write(conn *tls.Conn, message string) (int, error) {
+func (s *Session) Write(message string) (int, error) {
 	header := make([]byte, 4)
-	conn.SetWriteDeadline(time.Now().Add(TIMEOUT * time.Second))
+	s.Conn.SetWriteDeadline(time.Now().Add(TIMEOUT * time.Second))
 	binary.BigEndian.PutUint32(header, uint32(len(message))+4)
 	msg := []byte(message)
 	out := append(header, msg...)
-	n, err := conn.Write(out)
+	n, err := s.Conn.Write(out)
 	return n, err
 }
 
 // Utility. Send a Message and return the response.
-func Frame(conn *tls.Conn, messsage string) (string, error) {
-	_, err := Write(conn, messsage)
+func (s *Session) Frame(messsage string) (string, error) {
+	_, err := s.Write(messsage)
 	if err != nil {
 		return "", err
 	}
-	return Read(conn)
+	return s.Read()
+}
+
+// Close the socket connection
+func (s *Session) Close() error {
+	return s.Conn.Close()
 }

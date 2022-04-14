@@ -45,12 +45,12 @@ func Checkepp(conn *tls.Conn) {
 
 func servercertcheck(conn *tls.Conn) {
 	tlsversions := map[uint16]string{
-	tls.VersionSSL30: "SSL",
-	tls.VersionTLS10: "TLS 1.0",
-	tls.VersionTLS11: "TLS 1.1",
-	tls.VersionTLS12: "TLS 1.2",
-	tls.VersionTLS13: "TLS 1.3",
-}
+		tls.VersionSSL30: "SSL",
+		tls.VersionTLS10: "TLS 1.0",
+		tls.VersionTLS11: "TLS 1.1",
+		tls.VersionTLS12: "TLS 1.2",
+		tls.VersionTLS13: "TLS 1.3",
+	}
 
 	fmt.Println("\n\n==========Server side certificate check =====================")
 	state := conn.ConnectionState()
@@ -155,7 +155,7 @@ func dnschecks(host string) {
 
 func logintest(session *epp.Session, username string, password string) {
 	fmt.Println("\n=============== login check =====================")
-	login, err := epp.Login(session, username, password)
+	login, err := session.Login(username, password)
 	if err != nil {
 		log.Fatalf("Login failed with %s", err)
 	}
@@ -170,7 +170,7 @@ func RunTest(certfile string, keyfile string, host string, port int, username st
 		log.Fatalf("Epp session failure: %s", err)
 	}
 	// fmt.Println("TLS session connected", session.Conn.ConnectionState().Version)
-	defer session.Conn.Close()
+	defer session.Close()
 	servercertcheck(session.Conn)
 	fmt.Printf("Server: %s  -- %s\n", session.Greeting.Svid, session.Greeting.Svdate)
 	fmt.Println(" ")
