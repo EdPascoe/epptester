@@ -1,7 +1,6 @@
 package epp
 
 import (
-	"crypto/tls"
 	"encoding/xml"
 	"fmt"
 	"github.com/sirupsen/logrus"
@@ -9,14 +8,8 @@ import (
 
 // Login to epp server.
 
-type Session struct {
-	Conn        *tls.Conn
-	Greeting    *Eppgreeting
-	Lastmessage string
-}
-
 type Eppgreetingroot struct {
-	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:epp-1.0 epp"`
+	XMLName  xml.Name    `xml:"urn:ietf:params:xml:ns:epp-1.0 epp"`
 	Greeting Eppgreeting `xml:"urn:ietf:params:xml:ns:epp-1.0 greeting"`
 }
 type Eppgreeting struct {
@@ -37,41 +30,42 @@ type Eppgreeting struct {
 //</epp:epp>
 
 type Eppresponseroot struct {
-	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:epp-1.0 epp"`
+	XMLName  xml.Name    `xml:"urn:ietf:params:xml:ns:epp-1.0 epp"`
 	Response Eppresponse `xml:"urn:ietf:params:xml:ns:epp-1.0 response"`
 }
 type Eppresponse struct {
-	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:epp-1.0 response"`
-	Result Eppresult `xml:"urn:ietf:params:xml:ns:epp-1.0 result"`
+	XMLName xml.Name  `xml:"urn:ietf:params:xml:ns:epp-1.0 response"`
+	Result  Eppresult `xml:"urn:ietf:params:xml:ns:epp-1.0 result"`
 }
 type Eppresult struct {
-	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:epp-1.0 result"`
-	Code    int   `xml:"code,attr"`
-	Msg string `xml:"urn:ietf:params:xml:ns:epp-1.0 msg"`
+	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:epp-1.0 result"`
+	Code    int      `xml:"code,attr"`
+	Msg     string   `xml:"urn:ietf:params:xml:ns:epp-1.0 msg"`
+	Trid    string   `xml:"urn:ietf:params:xml:ns:epp-1.0 msg"`
 }
 
-type EppResponseError struct{
+type EppResponseError struct {
 	Code int
-	Msg string
+	Msg  string
 }
+
 func (m *EppResponseError) Error() string {
 	return fmt.Sprintf("%d -- %s", m.Code, m.Msg)
 }
 
-
 // Convert the epp greeting into a struct.
-func buildgreeting(session *Session, header string) error{
+func (s *Session) buildgreeting(header string) error {
 	root := Eppgreetingroot{}
 	err := xml.Unmarshal([]byte(header), &root)
 	if err != nil {
-		logrus.Error("Failed to unmarshall the epp header", err, "\n",header)
+		logrus.Error("Failed to unmarshall the epp header", err, "\n", header)
 		return err
 	}
-	session.Greeting = &root.Greeting
+	s.Greeting = &root.Greeting
 	return nil
 }
 
-func Login(session *Session, username string, password string) (*Eppresponse, error) {
+func (s *Session) Login(username string, password string) (*Eppresponse, error) {
 	template := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <epp xmlns="urn:ietf:params:xml:ns:epp-1.0">
    <command>
@@ -91,16 +85,16 @@ func Login(session *Session, username string, password string) (*Eppresponse, er
    </command>
 </epp>
 `, username, password)
-	msg, err := Frame(session.Conn, template)
+	msg, err := s.Frame(template)
 	if err != nil {
-		logrus.Error("Failed to login %s ", err )
+		logrus.Error("Failed to login ", err)
 		return nil, err
 	}
-	session.Lastmessage = msg
+	s.Lastmessage = msg
 	root := new(Eppresponseroot)
 	err = xml.Unmarshal([]byte(msg), &root)
 	if err != nil {
-		logrus.Error("Failed to unmarshall the epp login response", err, "\n",msg)
+		logrus.Error("Failed to unmarshall the epp login response", err, "\n", msg)
 		return nil, err
 	}
 	if root.Response.Result.Code != 1000 {
@@ -110,18 +104,4 @@ func Login(session *Session, username string, password string) (*Eppresponse, er
 		return nil, &err
 	}
 	return &root.Response, err
-}
-
-func Connect(certfile string, keyfile string, host string, port int) (*Session, error) {
-	conn, err := Tlsconnect(certfile, keyfile, host, port)
-	if err != nil {
-		return &Session{}, err
-	}
-	eppsession := Session{Conn: conn}
-	header, err := Read(conn) // The first frame is the epp greeting message.
-	if err != nil {
-		return &eppsession, fmt.Errorf("Failed to get header %s", err)
-	}
-	err = buildgreeting(&eppsession, header)
-	return &eppsession, err
 }
