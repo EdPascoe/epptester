@@ -16,20 +16,33 @@ binary := epptester
 
 # This repo's root import path (under GOPATH). From https://github.com/EdPascoe/epptester.git
 PKG := github.com/EdPascoe/epptester
-VERSION ?= main
-TAG_LATEST ?= false
+ifndef VERSION
+        VERSION := $(shell git describe --always --long --dirty | sed -e 's/^[A-Za-z]*_//' -e 's/-.*$$//')
+endif
 
+GITTAG=$(shell git describe --always --long --dirty )
+LDFLAGS=-ldflags="-X 'main.Version=$(VERSION)' -X 'main.GitTag=$(GITTAG)'"
+
+build:
+	go build -v ${LDFLAGS} -o ./bin/$(binary) ./cmd/epptester
+
+.PHONY: release
 release:
+	rm -rf bin
 	GOOS=windows GOARCH=amd64 go build -o ./bin/$(binary)_windows_amd64.exe ./cmd/epptester
 	GOOS=linux GOARCH=amd64 go build -o ./bin/$(binary)_linux_amd64 ./cmd/epptester
 	GOOS=darwin GOARCH=amd64 go build -o ./bin/$(binary)_darwin_amd64 ./cmd/epptester
 
-local:
-	go build -o ./bin/$(binary) ./cmd/epptester
 
 clean:
 	rm -rf bin
 push:
-	gsutil cp bin/* gs://$(binary)-release
+	#Tags and pushes the given version
+	git tag -a $(VERSION) -m "Release $(MSG)"
+	@echo "Please run:"
+	@echo "            git push --follow-tags"
+	gitchangelog  >> CHANGELOG.md
+	gh release create v$(VERSON) bin/* --target $(shell git branch --show-current ) -d -F CHANGELOG.md
+	
 
 
