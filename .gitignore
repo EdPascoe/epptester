@@ -17,3 +17,5 @@ bin
 *.pem
 *.swp
 .idea
+VERSION
+CHANGELOG.md

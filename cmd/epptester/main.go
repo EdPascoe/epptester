@@ -21,7 +21,11 @@ import (
 	"github.com/EdPascoe/epptester/pkg/cmd/epptester"
 	_ "github.com/EdPascoe/epptester/pkg/log"
 	"github.com/sirupsen/logrus"
+	"os"
 )
+
+var Version = "dev"
+var GitTag = "-"
 
 // The flag help message.
 func Usage() {
@@ -41,8 +45,13 @@ func main() {
 	port := flag.Int("port", 3121, "Server port ")
 	username := flag.String("username", "", "EPP Username")
 	password := flag.String("password", "", "EPP Password")
+	version := flag.Bool("version", false, "Show version")
 	flag.Usage = Usage
 	flag.Parse()
-
+	if *version {
+		fmt.Println("epptester", Version)
+		fmt.Println("Git version.\t", GitTag)
+		os.Exit(0)
+	}
 	epptester.RunTest(*certFile, *keyFile, *host, *port, *username, *password)
 }
