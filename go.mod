@@ -1,4 +1,4 @@
-module github.com/EdPascoe/epptester
+module epptester
 
 go 1.18
 

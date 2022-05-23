@@ -16,10 +16,10 @@ package main
 
 // runtime "github.com/banzaicloud/logrus-runtime-formatter"
 import (
+	"epptester/pkg/cmd/epptester"
+	_ "epptester/pkg/log"
 	"flag"
 	"fmt"
-	"github.com/EdPascoe/epptester/pkg/cmd/epptester"
-	_ "github.com/EdPascoe/epptester/pkg/log"
 	"github.com/sirupsen/logrus"
 	"os"
 )
@@ -46,6 +46,7 @@ func main() {
 	username := flag.String("username", "", "EPP Username")
 	password := flag.String("password", "", "EPP Password")
 	version := flag.Bool("version", false, "Show version")
+	tlsversion := flag.String("tls", "any", "TLS version to test with: 1.1, 1.2, 1.3, any")
 	flag.Usage = Usage
 	flag.Parse()
 	if *version {
@@ -53,5 +54,5 @@ func main() {
 		fmt.Println("Git version.\t", GitTag)
 		os.Exit(0)
 	}
-	epptester.RunTest(*certFile, *keyFile, *host, *port, *username, *password)
+	epptester.RunTest(*certFile, *keyFile, *host, *port, *username, *password, *tlsversion)
 }

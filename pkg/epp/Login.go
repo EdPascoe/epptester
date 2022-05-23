@@ -41,7 +41,7 @@ type Eppresult struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:epp-1.0 result"`
 	Code    int      `xml:"code,attr"`
 	Msg     string   `xml:"urn:ietf:params:xml:ns:epp-1.0 msg"`
-	Trid    string   `xml:"urn:ietf:params:xml:ns:epp-1.0 msg"`
+	//	Trid    string   `xml:"urn:ietf:params:xml:ns:epp-1.0 msg"`
 }
 
 type EppResponseError struct {
