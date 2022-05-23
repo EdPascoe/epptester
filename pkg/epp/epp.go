@@ -4,17 +4,34 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"time"
 )
 
 const TIMEOUT = 5
 
-func tlsconnect(certfile string, keyfile string, host string, port int) (*tls.Conn, error) {
+func tlsconnect(certfile string, keyfile string, host string, port int, tlsversion string) (*tls.Conn, error) {
 	cert, err := tls.LoadX509KeyPair(certfile, keyfile)
 	if err != nil {
 		return nil, err
 	}
 	config := tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: true}
+	switch tlsversion {
+	case "1.1":
+		config.MinVersion = tls.VersionTLS11
+		config.MaxVersion = tls.VersionTLS11
+	case "1.2":
+		config.MaxVersion = tls.VersionTLS12
+		config.MaxVersion = tls.VersionTLS12
+	case "1.3":
+		config.MinVersion = tls.VersionTLS13
+		config.MaxVersion = tls.VersionTLS13
+	case "any":
+		// Keep the default list of cipher suites
+	default:
+		panic(fmt.Sprint("Unable to handle TLS version ", tlsversion))
+	}
+	// logrus.Warning("Minversion: ", config.MinVersion)
 	hostport := fmt.Sprintf("%s:%d", host, port)
 	conn, err := tls.Dial("tcp", hostport, &config)
 	return conn, err
@@ -26,9 +43,10 @@ type Session struct {
 	Lastmessage string
 }
 
-func Connect(certfile string, keyfile string, host string, port int) (*Session, error) {
-	conn, err := tlsconnect(certfile, keyfile, host, port)
+func SessionStart(certfile string, keyfile string, host string, port int, tlsversion string) (*Session, error) {
+	conn, err := tlsconnect(certfile, keyfile, host, port, tlsversion)
 	if err != nil {
+		fmt.Errorf("Failed to connect; %s", err)
 		return &Session{}, err
 	}
 	eppsession := &Session{Conn: conn}
@@ -36,6 +54,7 @@ func Connect(certfile string, keyfile string, host string, port int) (*Session, 
 	if err != nil {
 		return eppsession, fmt.Errorf("Failed to get header %s", err)
 	}
+	// fmt.Println("Header ", header, "Error: ", err, "Len:", len(header))
 	err = eppsession.buildgreeting(header)
 	return eppsession, err
 }
@@ -50,22 +69,29 @@ func (s *Session) Read() (string, error) {
 		s.Conn.SetReadDeadline(time.Now().Add(TIMEOUT * time.Second))
 		n, err := s.Conn.Read(data)
 		if err != nil {
-			return "", fmt.Errorf("Failed to read from the EPP server: %s", err)
+			logrus.Error("Failed eppserver ", err)
+			return "", fmt.Errorf("Failed to read from the EPP server: %v", err)
 		}
+		// logrus.Info("Got data ", n, "bytes")
 		if msgsize == 0 { // This is the first frame.
 			if n < 4 {
-				return "", fmt.Errorf("The initial read only returned %s bytes. Aborting. ", n)
+				return "", fmt.Errorf("The initial read only returned %v bytes. Unable to find length. Aborting. ", n)
 			}
 			msgsize = binary.BigEndian.Uint32(data[0:4]) - 4
 			buffer = data[4:]
-			rbytes = msgsize
+			rbytes = uint32(n) - 4
+			// logrus.Infof("First read n %v msgsize: %v rbytes %v  ", n, msgsize, rbytes)
 		} else {
 			buffer = append(buffer, data[0:]...)
-			rbytes = rbytes + uint32(len(data))
+			rbytes = rbytes + uint32(n)
+			// logrus.Infof("Appended n was %v msgsize: %v rbytes %v ", n, msgsize, rbytes)
 		}
-		if rbytes == msgsize {
+		if rbytes >= msgsize {
+			if rbytes > msgsize {
+				logrus.Warning("Received more data than expected. Ignoring %v", string(buffer[msgsize:]))
+			}
 			// In go strings a utf-8 bytes already.
-			return string(buffer), nil
+			return string(buffer[:msgsize]), nil
 		}
 	}
 }

@@ -7,8 +7,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"epptester/pkg/epp"
 	"fmt"
-	"github.com/EdPascoe/epptester/pkg/epp"
 	"github.com/fatih/color"
 	"io/ioutil"
 	"log"
@@ -52,7 +52,6 @@ func servercertcheck(conn *tls.Conn) {
 		tls.VersionTLS13: "TLS 1.3",
 	}
 
-	fmt.Println("\n\n==========Server side certificate check =====================")
 	state := conn.ConnectionState()
 	for _, v := range state.PeerCertificates {
 		// fmt.Println(x509.MarshalPKIXPublicKey(v.PublicKey))
@@ -130,7 +129,7 @@ func Findmyip() string {
 
 }
 
-// Find the name of the server we are going to connect to
+// Find the ip address of the server we are going to connect to
 func Findserverip(host string) string {
 	ips, err := net.LookupIP(host)
 	if err != nil {
@@ -162,11 +161,13 @@ func logintest(session *epp.Session, username string, password string) {
 	fmt.Println("Logged in ", login.Result.Msg)
 }
 
-func RunTest(certfile string, keyfile string, host string, port int, username string, password string) {
+func RunTest(certfile string, keyfile string, host string, port int, username string, password string, tlsversion string) {
 	dnschecks(host)
 	clientcertcheck(certfile)
-	session, err := epp.Connect(certfile, keyfile, host, port)
+	fmt.Println("\n=============== Server side checks =====================")
+	session, err := epp.SessionStart(certfile, keyfile, host, port, tlsversion)
 	if err != nil {
+		fmt.Errorf("Faled to connect properly: ", err)
 		log.Fatalf("Epp session failure: %s", err)
 	}
 	// fmt.Println("TLS session connected", session.Conn.ConnectionState().Version)
