@@ -26,22 +26,33 @@ LDFLAGS=-ldflags="-X 'main.Version=$(VERSION)' -X 'main.GitTag=$(GITTAG)'"
 build:
 	go build -v ${LDFLAGS} -o ./bin/$(binary) ./cmd/epptester
 
-.PHONY: release
-release:
+.PHONY: prod
+prod:
 	rm -rf bin
 	GOOS=windows GOARCH=amd64 go build -v ${LDFLAGS} -o ./bin/$(binary)_windows_amd64.exe ./cmd/epptester
 	GOOS=linux GOARCH=amd64 go build -v ${LDFLAGS} -o ./bin/$(binary)_linux_amd64 ./cmd/epptester
 	GOOS=darwin GOARCH=amd64 go build -v ${LDFLAGS} -o ./bin/$(binary)_darwin_amd64 ./cmd/epptester
 
+.PHONY: changelog
+changelog:
+	gitchangelog > CHANGELOG.md
+
 clean:
 	rm -rf bin
-push: release
-	#Tags and pushes the given version
-	git tag -f -a $(VERSION) -m "Release $(MSG)"
-	@echo "Please run:"
-	@echo "            git push --follow-tags"
-	gitchangelog > CHANGELOG.md
+
+release: prod CHANGELOG.md
+	@ # Tags and pushes the version but only if tagged. Also need a CHANGELOG.md file. (see make changelog) and must be master branch
+ifeq "$(shell git branch --show-current | grep master | wc -l)" "0"
+	@echo "Master branch only!!"
+	false
+endif
+ifneq ("$(VERSION)", "$(shell git tags | grep "^$(VERSION)$$")")
+	@echo "Please tag the repo with this version number before pushing"
+	@echo "Eg: git tag -f -a $(VERSION) -m 'Release $(MSG)'"
+	@echo "git push --follow-tags"
+	@echo " "
+	@false
+endif
+	false
+	@# See: https://github.com/cli/cli/releases for the github gh  tool
 	gh release create v$(VERSON) bin/* --target $(shell git branch --show-current ) -d -F CHANGELOG.md
-	
-
-
