@@ -53,6 +53,5 @@ ifneq ("$(VERSION)", "$(shell git tags | grep "^$(VERSION)$$")")
 	@echo " "
 	@false
 endif
-	false
 	@# See: https://github.com/cli/cli/releases for the github gh  tool
-	gh release create v$(VERSON) bin/* --target $(shell git branch --show-current ) -d -F CHANGELOG.md
+	gh release create v$(VERSION) bin/* --target $(shell git branch --show-current ) -d -F CHANGELOG.md
