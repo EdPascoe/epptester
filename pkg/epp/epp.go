@@ -17,6 +17,9 @@ func tlsconnect(certfile string, keyfile string, host string, port int, tlsversi
 	}
 	config := tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: true}
 	switch tlsversion {
+	case "1.0":
+		config.MinVersion = tls.VersionTLS10
+		config.MaxVersion = tls.VersionTLS10
 	case "1.1":
 		config.MinVersion = tls.VersionTLS11
 		config.MaxVersion = tls.VersionTLS11
@@ -74,8 +77,16 @@ func (s *Session) Read() (string, error) {
 		}
 		// logrus.Info("Got data ", n, "bytes")
 		if msgsize == 0 { // This is the first frame.
-			if n < 4 {
-				return "", fmt.Errorf("The initial read only returned %v bytes. Unable to find length. Aborting. ", n)
+			for n < 4 {
+				// Dodgy epp server. Didn't get enough bytes for a length. Trying again.
+				data1 := make([]byte, 8192)
+				n1, err := s.Conn.Read(data1)
+				if err != nil {
+					logrus.Error("Failed to read while getting message length ", err)
+					return "", fmt.Errorf("Failed while getting message length: %v", err)
+				}
+				data = append(data[0:n], data1...)
+				n = n + n1
 			}
 			msgsize = binary.BigEndian.Uint32(data[0:4]) - 4
 			buffer = data[4:]

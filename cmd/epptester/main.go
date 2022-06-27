@@ -46,7 +46,7 @@ func main() {
 	username := flag.String("username", "", "EPP Username")
 	password := flag.String("password", "", "EPP Password")
 	version := flag.Bool("version", false, "Show version")
-	tlsversion := flag.String("tls", "any", "TLS version to test with: 1.1, 1.2, 1.3, any")
+	tlsversion := flag.String("tls", "any", "TLS version to test with: 1.0, 1.1, 1.2, 1.3, any")
 	flag.Usage = Usage
 	flag.Parse()
 	if *version {
