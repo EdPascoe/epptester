@@ -10,11 +10,26 @@ import (
 
 const TIMEOUT = 5
 
-func tlsconnect(certfile string, keyfile string, host string, port int, tlsversion string) (*tls.Conn, error) {
+// Do a tls connection with cert and key as strings.
+func Tlsconnectstring(certstr string, keystr string, host string, port int, tlsversion string) (*tls.Conn, error) {
+	cert, err := tls.X509KeyPair([]byte(certstr), []byte(keystr))
+	if err != nil {
+		return nil, err
+	}
+	return Tlsconnect(cert, host, port, tlsversion)
+}
+
+// Do a tls connection with cert and key as files.
+func Tlsconnectfile(certfile string, keyfile string, host string, port int, tlsversion string) (*tls.Conn, error) {
 	cert, err := tls.LoadX509KeyPair(certfile, keyfile)
 	if err != nil {
 		return nil, err
 	}
+	return Tlsconnect(cert, host, port, tlsversion)
+}
+
+// The actual tls certificate.
+func Tlsconnect(cert tls.Certificate, host string, port int, tlsversion string) (*tls.Conn, error) {
 	config := tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: true}
 	switch tlsversion {
 	case "1.0":
@@ -32,7 +47,7 @@ func tlsconnect(certfile string, keyfile string, host string, port int, tlsversi
 	case "any":
 		// Keep the default list of cipher suites
 	default:
-		panic(fmt.Sprint("Unable to handle TLS version ", tlsversion))
+		panic(fmt.Sprint("Unable to handle TLS version >", tlsversion, "<"))
 	}
 	// logrus.Warning("Minversion: ", config.MinVersion)
 	hostport := fmt.Sprintf("%s:%d", host, port)
@@ -47,7 +62,7 @@ type Session struct {
 }
 
 func SessionStart(certfile string, keyfile string, host string, port int, tlsversion string) (*Session, error) {
-	conn, err := tlsconnect(certfile, keyfile, host, port, tlsversion)
+	conn, err := Tlsconnectfile(certfile, keyfile, host, port, tlsversion)
 	if err != nil {
 		fmt.Errorf("Failed to connect; %s", err)
 		return &Session{}, err
@@ -58,7 +73,7 @@ func SessionStart(certfile string, keyfile string, host string, port int, tlsver
 		return eppsession, fmt.Errorf("Failed to get header %s", err)
 	}
 	// fmt.Println("Header ", header, "Error: ", err, "Len:", len(header))
-	err = eppsession.buildgreeting(header)
+	err = eppsession.Buildgreeting(header)
 	return eppsession, err
 }
 

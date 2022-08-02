@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"os"
+	"time"
 )
 
 var Version = "dev"
@@ -28,9 +29,8 @@ var GitTag = "-"
 // The flag help message.
 func Usage() {
 	w := flag.CommandLine.Output() // may be os.Stderr - but not necessarily
-	fmt.Fprintln(w, `eppprom
-Testing remote EPP connections.
-See 
+	fmt.Fprintln(w, `epppromtester
+Testing remote EPP connection and exporting result to prometheus.
 `)
 	flag.PrintDefaults()
 }
@@ -49,6 +49,14 @@ func main() {
 	// epptester.RunTest(*certFile, *keyFile, *host, *port, *username, *password, *tlsversion)
 	config := &eppprom.Config{}
 	eppprom.Loadconfig(*configfile, config)
-	eppprom.Testzones(config)
+	for true {
+		eppprom.Testzones(config)
+		if config.Refresh == 0 {
+			break
+		} else {
+			time.Sleep(time.Duration(config.Refresh) * time.Second)
+		}
+	}
+	os.Exit(0)
 
 }

@@ -1,6 +1,7 @@
 package eppprom
 
 import (
+	"epptester/internal/promexport"
 	"epptester/pkg/epp"
 	"fmt"
 	"github.com/sirupsen/logrus"
@@ -13,19 +14,17 @@ import (
 const retrycount = 3
 
 type Config struct {
-	Zones      []Zone `yaml:"zones,omitempty"`
-	Cert       string `yaml:"cert,omitempty"`
-	Key        string `yaml:"key,omitempty"`
-	Configfile string `yaml:"__configfile,omitempty"` // We need the config file for the certificates
-}
-type Zone struct {
-	Name       string `yaml:"name,omitempty"`
-	Promfile   string `yaml:"promfile,omitempty"`
-	Host       string `yaml:"host,omitempty"`
-	Port       int    `yaml:"port,omitempty"`
-	Username   string `yaml:"username,omitempty"`
-	Password   string `yaml:"password,omitempty"`
-	Tlsversion string `yaml:"tlsversion,omitempty"`
+	Refresh  int `yaml:"refresh,omitempty"`
+	Promfile string
+	Cert     string
+	Key      string
+	Zones    []struct {
+		Name       string
+		Host       string
+		Port       int    `yaml:"port,omitempty"`
+		Tlsversion string `yaml:"tlsversion,omitempty"`
+	}
+	Configfile string `yaml:"__notreal__configfile,omitempty"` // We need the config file for the certificates
 }
 
 func Loadconfig(configfile string, config *Config) {
@@ -41,36 +40,53 @@ func Loadconfig(configfile string, config *Config) {
 		log.Fatalln("Failed to process yaml in ", configfile, ":", err)
 	}
 	config.Configfile = configfile
-	for i, zone := range config.Zones {
+	for i, _ := range config.Zones {
+		zone := &config.Zones[i] // We need to see the original zone field. Not a copy
 		if zone.Tlsversion == "" {
-			config.Zones[i].Tlsversion = "any" // zone is a copy so we need to see the original.
+			zone.Tlsversion = "any"
 		}
 		if zone.Port == 0 {
-			config.Zones[i].Port = 3121 // Default port
+			config.Zones[i].Port = 700 // Default IANA port for EPP
 		}
 	}
 	// fmt.Printf("--- t:\n%v\n\n", *config)
 }
 
 func Testzones(config *Config) {
+	prom, err := promexport.NewPromwriter(config.Promfile)
+	defer prom.Close()
+	if err != nil {
+		logrus.Fatal("Failed to start prometheus logging to ", config.Promfile, ":", err)
+	}
+	status := "ok"
+	qtime := 0
+
 	for _, zone := range config.Zones {
-		logrus.Info("Testing zone", zone.Name)
+		logrus.Info("Testing zone ", zone.Name)
 		for i := 1; i < retrycount; i++ {
 			tstart := time.Now()
 			conn, err := epp.Tlsconnectstring(config.Cert, config.Key, zone.Host, zone.Port, zone.Tlsversion)
 			if err != nil {
-				logrus.Fatal("Failed to connect to ", zone, ":", err)
+				logrus.Error("Failed to connect to ", zone, ":", err)
+				status = "ERROR_CONNECT"
+				qtime = 0
+				continue
 			}
 			eppsession := &epp.Session{Conn: conn}
 			header, err := eppsession.Read() // The first frame is the epp greeting message.
 			if err != nil {
 				logrus.Fatal("Failed to read header for ", zone, ":", err)
+				status = "ERROR_NOHEADER"
+				qtime = 0
+				continue
 			}
 			err = eppsession.Buildgreeting(header)
-			fmt.Println(eppsession.Greeting.Svid)
-			duration := int32(time.Since(tstart) / time.Millisecond)
-			logrus.Infoln("Run time was ", duration)
+			// fmt.Println(eppsession.Greeting.Svid)
+			qtime = int(time.Since(tstart) / time.Millisecond)
+			logrus.Infoln(zone.Name, " Pass ", qtime, " ms")
+			break // No need to retry
 		}
+		prom.Writeresult(zone.Name, status, qtime)
 	}
 }
 

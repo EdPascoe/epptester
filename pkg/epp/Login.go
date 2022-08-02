@@ -54,7 +54,7 @@ func (m *EppResponseError) Error() string {
 }
 
 // Convert the epp greeting into a struct.
-func (s *Session) buildgreeting(header string) error {
+func (s *Session) Buildgreeting(header string) error {
 	root := Eppgreetingroot{}
 	err := xml.Unmarshal([]byte(header), &root)
 	if err != nil {

@@ -30,8 +30,11 @@ build:
 prod:
 	rm -rf bin
 	GOOS=windows GOARCH=amd64 go build -v ${LDFLAGS} -o ./bin/$(binary)_windows_amd64.exe ./cmd/epptester
-	GOOS=linux GOARCH=amd64 go build -v ${LDFLAGS} -o ./bin/$(binary)_linux_amd64 ./cmd/epptester
 	GOOS=darwin GOARCH=amd64 go build -v ${LDFLAGS} -o ./bin/$(binary)_darwin_amd64 ./cmd/epptester
+	GOOS=linux GOARCH=amd64 go build -v ${LDFLAGS} -o ./bin/$(binary)_linux_amd64 ./cmd/epptester
+
+	GOOS=linux GOARCH=amd64 go build -v ${LDFLAGS} -o ./bin/epppromtester_linux_amd64 ./cmd/eppprom
+	cp cmd/eppprom/eppprom.yaml.sample  ./bin
 
 .PHONY: changelog
 changelog:
