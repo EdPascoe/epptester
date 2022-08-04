@@ -58,12 +58,14 @@ func Testzones(config *Config) {
 	if err != nil {
 		logrus.Fatal("Failed to start prometheus logging to ", config.Promfile, ":", err)
 	}
+
 	status := "ok"
 	qtime := 0
-
 	for _, zone := range config.Zones {
 		logrus.Info("Testing zone ", zone.Name)
 		for i := 1; i < retrycount; i++ {
+			status = "ok"
+			qtime = 0
 			tstart := time.Now()
 			conn, err := epp.Tlsconnectstring(config.Cert, config.Key, zone.Host, zone.Port, zone.Tlsversion)
 			if err != nil {

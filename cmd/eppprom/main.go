@@ -37,7 +37,7 @@ Testing remote EPP connection and exporting result to prometheus.
 
 func main() {
 	logrus.Debugln("Start")
-	configfile := flag.String("C", "eppprom.yanl", "Yaml config file")
+	configfile := flag.String("C", "eppprom.yaml", "Yaml config file")
 	version := flag.Bool("version", false, "Show version")
 	flag.Usage = Usage
 	flag.Parse()
