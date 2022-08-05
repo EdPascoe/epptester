@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 	"log"
+	"net"
 	"os"
 	"time"
 )
@@ -48,6 +49,7 @@ func Loadconfig(configfile string, config *Config) {
 		if zone.Port == 0 {
 			config.Zones[i].Port = 700 // Default IANA port for EPP
 		}
+
 	}
 	// fmt.Printf("--- t:\n%v\n\n", *config)
 }
@@ -61,34 +63,43 @@ func Testzones(config *Config) {
 
 	status := "ok"
 	qtime := 0
+
 	for _, zone := range config.Zones {
 		logrus.Info("Testing zone ", zone.Name)
-		for i := 1; i < retrycount; i++ {
-			status = "ok"
-			qtime = 0
-			tstart := time.Now()
-			conn, err := epp.Tlsconnectstring(config.Cert, config.Key, zone.Host, zone.Port, zone.Tlsversion)
-			if err != nil {
-				logrus.Error("Failed to connect to ", zone, ":", err)
-				status = "ERROR_CONNECT"
-				qtime = 0
-				continue
-			}
-			eppsession := &epp.Session{Conn: conn}
-			header, err := eppsession.Read() // The first frame is the epp greeting message.
-			if err != nil {
-				logrus.Fatal("Failed to read header for ", zone, ":", err)
-				status = "ERROR_NOHEADER"
-				qtime = 0
-				continue
-			}
-			err = eppsession.Buildgreeting(header)
-			// fmt.Println(eppsession.Greeting.Svid)
-			qtime = int(time.Since(tstart) / time.Millisecond)
-			logrus.Infoln(zone.Name, " Pass ", qtime, " ms")
-			break // No need to retry
+
+		ipaddrs, err := net.LookupIP(zone.Host)
+		if err != nil {
+			logrus.Error("Failed to lookup host for ", zone, ":", err)
+			continue
 		}
-		prom.Writeresult(zone.Name, status, qtime)
+		for _, ip := range ipaddrs {
+			for i := 1; i < retrycount; i++ {
+				status = "ok"
+				qtime = 0
+				tstart := time.Now()
+				conn, err := epp.Tlsconnectstring(config.Cert, config.Key, ip.String(), zone.Port, zone.Tlsversion)
+				if err != nil {
+					logrus.Error("Failed to connect to ", zone, ":", err)
+					status = "ERROR_CONNECT"
+					qtime = 0
+					continue
+				}
+				eppsession := &epp.Session{Conn: conn}
+				header, err := eppsession.Read() // The first frame is the epp greeting message.
+				if err != nil {
+					logrus.Fatal("Failed to read header for ", zone, ":", err)
+					status = "ERROR_NOHEADER"
+					qtime = 0
+					continue
+				}
+				err = eppsession.Buildgreeting(header)
+				// fmt.Println(eppsession.Greeting.Svid)
+				qtime = int(time.Since(tstart) / time.Millisecond)
+				logrus.Infoln(zone.Name, " Pass ", qtime, " ms")
+				break // No need to retry
+			}
+			prom.Writeresult(zone.Name, zone.Host, ip.String(), status, qtime)
+		}
 	}
 }
 

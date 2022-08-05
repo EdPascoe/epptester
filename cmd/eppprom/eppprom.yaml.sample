@@ -6,7 +6,7 @@ refresh: 30
 zones:
  - name: example
    host: epp.example
-# Port defaults to 700
+   # Port defaults to 700
    port: 3121
 
  - name: epp.otherexample.com

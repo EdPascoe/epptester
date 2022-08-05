@@ -7,10 +7,12 @@ import (
 )
 
 type Result struct {
-	Hostname string
-	Zone     string
-	Status   string
-	Qtime    int
+	Hostname    string
+	Zone        string
+	EppHostname string
+	Ip          string
+	Status      string
+	Qtime       int
 }
 
 type Promwriter struct {
@@ -50,9 +52,11 @@ func (p *Promwriter) Close() error {
 	return os.Rename(p.Filename+".tmp", p.Filename)
 }
 
-func (p *Promwriter) Writeresult(zone string, status string, querytime int) error {
-	res := Result{Hostname: p.Hostname, Zone: zone, Status: status, Qtime: querytime}
-	tmpl := "epp_check{zone=\"{{.Zone}}\", status=\"{{.Status}}\", hostname=\"{{.Hostname}}\"} {{.Qtime}}\n"
+// dns_query{zone="koeln", nameserver_ip="157.90.205.138", rcode="NOERROR", hostname="monitor21.dns.net.za"} 208
+
+func (p *Promwriter) Writeresult(zone string, epphostname string, ip string, status string, querytime int) error {
+	res := Result{Hostname: p.Hostname, Zone: zone, EppHostname: epphostname, Ip: ip, Status: status, Qtime: querytime}
+	tmpl := "epp_check{zone=\"{{.Zone}}\", status=\"{{.Status}}\", ip=\"{{.Ip}}\", epphost=\"{{.EppHostname}}\", hostname=\"{{.Hostname}}\"} {{.Qtime}}\n"
 	t, err := template.New("prometheus").Parse(tmpl)
 	if err != nil {
 		panic(err)

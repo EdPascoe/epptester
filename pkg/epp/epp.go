@@ -50,7 +50,7 @@ func Tlsconnect(cert tls.Certificate, host string, port int, tlsversion string) 
 		panic(fmt.Sprint("Unable to handle TLS version >", tlsversion, "<"))
 	}
 	// logrus.Warning("Minversion: ", config.MinVersion)
-	hostport := fmt.Sprintf("%s:%d", host, port)
+	hostport := fmt.Sprintf("[%s]:%d", host, port)
 	conn, err := tls.Dial("tcp", hostport, &config)
 	return conn, err
 }
