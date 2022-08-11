@@ -16,8 +16,8 @@ package main
 
 // runtime "github.com/banzaicloud/logrus-runtime-formatter"
 import (
-	"epptester/pkg/cmd/epptester"
-	_ "epptester/pkg/log"
+	"epptester/internal/epptester"
+	_ "epptester/internal/log"
 	"flag"
 	"fmt"
 	"github.com/sirupsen/logrus"

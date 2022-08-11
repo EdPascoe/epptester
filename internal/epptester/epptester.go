@@ -7,7 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"epptester/pkg/epp"
+	"epptester/epp"
 	"fmt"
 	"github.com/fatih/color"
 	"io/ioutil"
@@ -55,6 +55,7 @@ func servercertcheck(conn *tls.Conn) {
 	state := conn.ConnectionState()
 	for _, v := range state.PeerCertificates {
 		// fmt.Println(x509.MarshalPKIXPublicKey(v.PublicKey))
+		fmt.Println("HERE")
 		fmt.Println("Certificate: ", v.Subject) // , v.Verify())
 		fmt.Printf("   Expiry: %s", v.NotAfter)
 		if time.Now().After(v.NotAfter) {

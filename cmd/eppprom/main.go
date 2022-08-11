@@ -15,7 +15,7 @@ package main
 
 import (
 	"epptester/eppprom"
-	_ "epptester/pkg/log"
+	_ "epptester/internal/log"
 	"flag"
 	"fmt"
 	"github.com/sirupsen/logrus"

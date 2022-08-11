@@ -1,8 +1,8 @@
 package eppprom
 
 import (
+	"epptester/epp"
 	"epptester/internal/promexport"
-	"epptester/pkg/epp"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
